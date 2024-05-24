@@ -1,0 +1,53 @@
+table {
+    font-size: 12px;
+    border-collapse: collapse;
+}
+table tr:nth-child(2n of .shared) {
+    background-color: #eeeeee;
+}
+table tr.High {
+    background-color: #ffdddd;
+}
+table tr.Moderate {
+    background-color: #ddddff;
+}
+table tr.Low {
+    background-color: #ddffdd;
+}
+table tr.shared td:nth-child(1) {
+    width: 8ch;
+    white-space: nowrap;
+}
+table tr.shared td:nth-child(2),
+table tr.shared td:nth-child(3),
+table tr.shared td:nth-child(4) {
+    width: 2ch;
+    background-color: lightgrey;
+}
+table tr.shared td:nth-child(5) {
+    white-space: pre-wrap;
+    max-width: 200px;
+}
+table tr.shared td:nth-child(6) {
+    white-space: pre-wrap;
+    max-width: 600px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+table tr.shared td:nth-child(7) {
+    white-space: pre-wrap;
+    max-width: 800px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+table tr.parameters td:nth-child(1) {
+    max-width: 8ch;
+}
+table tr.parameters td:nth-child(2) {
+    white-space: pre-wrap;
+    width: 200px;
+}
+table tr.parameters td:nth-child(3) {
+    white-space: pre-wrap;
+    max-width: 300px;
+}
