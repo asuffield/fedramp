@@ -34,15 +34,20 @@ impl Baselines {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct Parameters {
     assignment: String,
     additional: String,
 }
 
 impl Parameters {
-    fn is_empty(&self) -> bool {
-        self.assignment.is_empty() && self.additional.is_empty()
+    fn flatten(&self) -> Parameters {
+        let ws = regex!(r"\s+");
+
+        return Parameters {
+            assignment: ws.replace_all(self.assignment.as_str(), " ").to_string(),
+            additional: ws.replace_all(self.additional.as_str(), " ").to_string(),
+        };
     }
 }
 
@@ -53,6 +58,29 @@ struct Control {
     description: String,
     discussion: String,
     parameters: EnumMap<Baselines, Option<Parameters>>,
+}
+impl Control {
+    fn distinct_parameters(&self) -> bool {
+        let mut flat_parameters: Vec<Option<Parameters>> = self
+            .parameters
+            .values()
+            .filter(|v| v.is_some())
+            .map(|v| v.clone())
+            .collect();
+        for x in &mut flat_parameters {
+            match x {
+                Some(v) => {
+                    *x = Some(v.flatten());
+                },
+                None => {
+                    *x = Some(Parameters::default());
+                }
+            }
+        }
+        flat_parameters.sort();
+        flat_parameters.dedup();
+        return flat_parameters.len() > 1;
+    }
 }
 
 impl Default for Control {
@@ -104,11 +132,15 @@ impl Controls {
                             s if s.starts_with("NIST Control Description") => {
                                 control.description = value.trim().to_string()
                             }
-                            s if s.starts_with("NIST Discussion") => control.discussion = value.trim().to_string(),
+                            s if s.starts_with("NIST Discussion") => {
+                                control.discussion = value.trim().to_string()
+                            }
                             s if s.contains("Assignment / Selection") => {
                                 parameters.assignment = value.trim().to_string()
                             }
-                            s if s.contains("Additional") => parameters.additional = value.trim().to_string(),
+                            s if s.contains("Additional") => {
+                                parameters.additional = value.trim().to_string()
+                            }
                             _ => {}
                         }
                     }
@@ -197,36 +229,64 @@ fn tabulate_controls(controls: Controls) -> build_html::Table {
             }
         };
 
+        let has_parameter_rows = control.distinct_parameters();
+        let rowspan = if has_parameter_rows {
+            1 + control.parameters.len()
+        } else {
+            1
+        }
+        .to_string();
+
         let shared_cell = |content| {
             TableCell::new(TableCellType::Data)
                 .with_raw(content)
-                .with_attributes([("rowspan", "4")])
+                .with_attributes([("rowspan", rowspan.as_str())])
         };
 
-        let row = TableRow::new()
+        let id_str = id.to_string();
+        let name_str = control.name.replace(" | ", "\n");
+        let mut row = TableRow::new()
             .with_attributes([("class", "shared")])
-            .with_cell(shared_cell(id.to_string().as_str()))
+            .with_cell(shared_cell(id_str.as_str()))
             .with_cell(shared_cell(tick_if_present(Baselines::High)))
             .with_cell(shared_cell(tick_if_present(Baselines::Moderate)))
             .with_cell(shared_cell(tick_if_present(Baselines::Low)))
-            .with_cell(shared_cell(control.name.replace(" | ", "\n").as_str()))
+            .with_cell(shared_cell(name_str.as_str()))
             .with_cell(shared_cell(control.description.as_str()))
             .with_cell(shared_cell(control.discussion.as_str()));
 
+        if !has_parameter_rows {
+            row = row.with_cell(shared_cell(""));
+            if let Some(Some(parameters)) = control.parameters.values().next() {
+                row = row
+                    .with_cell(shared_cell(parameters.assignment.as_str()))
+                    .with_cell(shared_cell(parameters.additional.as_str()))
+            } else {
+                row = row.with_cell(shared_cell("")).with_cell(shared_cell(""));
+            }
+        }
+
         table.add_custom_body_row(row);
 
-        for level in Baselines::iter() {
-            let mut row = TableRow::new().with_attributes([("class", format!("parameters {}", level.short()).as_str())]);
-            match &control.parameters[level] {
-                Some(parameters) if !parameters.is_empty() => {
-                    row = row
-                        .with_cell(TableCell::default().with_raw(level.short()))
-                        .with_cell(TableCell::default().with_raw(parameters.assignment.as_str()))
-                        .with_cell(TableCell::default().with_raw(parameters.additional.as_str()));
+        if has_parameter_rows {
+            for level in Baselines::iter() {
+                let mut row = TableRow::new()
+                    .with_attributes([("class", format!("parameters {}", level.short()).as_str())]);
+                match &control.parameters[level] {
+                    Some(parameters) => {
+                        row = row
+                            .with_cell(TableCell::default().with_raw(level.short()))
+                            .with_cell(
+                                TableCell::default().with_raw(parameters.assignment.as_str()),
+                            )
+                            .with_cell(
+                                TableCell::default().with_raw(parameters.additional.as_str()),
+                            );
+                    }
+                    _ => {}
                 }
-                _ => {}
+                table.add_custom_body_row(row);
             }
-            table.add_custom_body_row(row);
         }
     }
     return table;

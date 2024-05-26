@@ -40,14 +40,17 @@ table tr.shared td:nth-child(7) {
     padding-top: 10px;
     padding-bottom: 10px;
 }
-table tr.parameters td:nth-child(1) {
+table tr.parameters td:nth-child(1),
+table tr.shared td:nth-child(8) {
     max-width: 8ch;
 }
-table tr.parameters td:nth-child(2) {
+table tr.parameters td:nth-child(2),
+table tr.shared td:nth-child(9) {
     white-space: pre-wrap;
     width: 200px;
 }
-table tr.parameters td:nth-child(3) {
+table tr.parameters td:nth-child(3),
+table tr.shared td:nth-child(10) {
     white-space: pre-wrap;
     max-width: 300px;
 }
