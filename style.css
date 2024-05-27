@@ -1,54 +1,139 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    padding: 10px;
+    background: #f2f2f2;
+}
+
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    /* max-width: 700px; */
+    background: #efefef;
+    box-shadow: 0 48px 80px -32px rgba(0, 0, 0, 0.3);
+}
+
+.input {
+    position: absolute;
+    opacity: 0;
+}
+
+.label {
+    width: 100%;
+    padding: 20px 30px;
+    background: #e5e5e5;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 18px;
+    color: #7f7f7f;
+    transition: background 0.1s, color 0.1s;
+}
+
+.label:hover {
+    background: #d8d8d8;
+}
+
+.label:active {
+    background: #ccc;
+}
+
+.input:focus+.label {
+    box-shadow: inset 0px 0px 0px 3px #2aa1c0;
+    z-index: 1;
+}
+
+.input:checked+.label {
+    background: #fff;
+    color: #000;
+}
+
+@media (min-width: 600px) {
+    .label {
+        width: auto;
+    }
+}
+
+.panel {
+    display: none;
+    padding: 20px 30px 30px;
+    background: #fff;
+}
+
+@media (min-width: 600px) {
+    .panel {
+        order: 99;
+    }
+}
+
+.input:checked+.label+.panel {
+    display: block;
+}
+
 table {
     font-size: 12px;
     border-collapse: collapse;
 }
+
 table tr:nth-child(2n of .shared) {
     background-color: #eeeeee;
 }
+
 table tr.High {
     background-color: #ffdddd;
 }
+
 table tr.Moderate {
     background-color: #ddddff;
 }
+
 table tr.Low {
     background-color: #ddffdd;
 }
+
 table tr.shared td:nth-child(1) {
     width: 8ch;
     white-space: nowrap;
 }
+
 table tr.shared td:nth-child(2),
 table tr.shared td:nth-child(3),
 table tr.shared td:nth-child(4) {
     width: 2ch;
     background-color: lightgrey;
 }
+
 table tr.shared td:nth-child(5) {
     white-space: pre-wrap;
     max-width: 200px;
 }
+
 table tr.shared td:nth-child(6) {
     white-space: pre-wrap;
     max-width: 600px;
     padding-top: 10px;
     padding-bottom: 10px;
 }
+
 table tr.shared td:nth-child(7) {
     white-space: pre-wrap;
     max-width: 800px;
     padding-top: 10px;
     padding-bottom: 10px;
 }
+
 table tr.parameters td:nth-child(1),
 table tr.shared td:nth-child(8) {
     max-width: 8ch;
 }
+
 table tr.parameters td:nth-child(2),
 table tr.shared td:nth-child(9) {
     white-space: pre-wrap;
     width: 200px;
 }
+
 table tr.parameters td:nth-child(3),
 table tr.shared td:nth-child(10) {
     white-space: pre-wrap;

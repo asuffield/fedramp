@@ -1,6 +1,6 @@
 use build_html::*;
 use calamine::{DataType, Reader, Xlsx};
-use enum_map::{enum_map, Enum, EnumMap};
+use enum_map::{Enum, EnumMap};
 use lazy_regex::regex;
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
@@ -81,6 +81,24 @@ impl Control {
         flat_parameters.dedup();
         return flat_parameters.len() > 1;
     }
+
+    fn without_baseline(&self, level: Baselines) -> Control {
+        let mut c = self.clone();
+        c.parameters[level] = None;
+        return c;
+    }
+}
+
+impl Clone for Control {
+    fn clone(&self) -> Self {
+        Control{
+            id: self.id.clone(),
+            name: self.name.clone(),
+            description: self.description.clone(),
+            discussion: self.discussion.clone(),
+            parameters: EnumMap::from_array(self.parameters.as_array().clone()),
+        }
+    }
 }
 
 impl Default for Control {
@@ -90,11 +108,7 @@ impl Default for Control {
             name: "".into(),
             description: "".into(),
             discussion: "".into(),
-            parameters: enum_map! {
-                    Baselines::High => None,
-                    Baselines::Moderate => None,
-                    Baselines::Low => None,
-            },
+            parameters: EnumMap::from_fn(|_| None),
         };
     }
 }
@@ -153,6 +167,12 @@ impl Controls {
         }
         return c;
     }
+
+    fn without_baseline(&self, level: Baselines) -> Controls {
+        let mut controls = HashMap::new();
+        controls.extend(self.controls.iter().map(|(k, v)| (k.clone(), v.without_baseline(level))));
+        return Controls{controls};
+    }
 }
 
 async fn get_baselines() -> Result<HashMap<Baselines, Controls>, Box<dyn std::error::Error>> {
@@ -201,7 +221,7 @@ fn merge_controls(baselines: HashMap<Baselines, Controls>) -> Controls {
     };
 }
 
-fn tabulate_controls(controls: Controls) -> build_html::Table {
+fn tabulate_controls(controls: &Controls) -> build_html::Table {
     let mut ids: Vec<&ControlID> = controls.controls.keys().collect();
     ids.sort();
     let mut table = Table::new().with_custom_header_row(
@@ -292,15 +312,26 @@ fn tabulate_controls(controls: Controls) -> build_html::Table {
     return table;
 }
 
+fn add_tab(html: &mut impl HtmlContainer, name: &str, title: &str, checked: bool, content: Container) {
+    let input = format!(r#"<input name="tabs" type="radio" id="{name}" {} class="input"/>"#, if checked {r#"checked="checked""#} else {""});
+    let label = format!(r#"<label for="{name}" class="label">{title}</label>"#);
+    html.add_raw(input);
+    html.add_raw(label);
+    html.add_container(content.with_attributes([("class", "panel")]));
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let baselines = get_baselines().await?;
     let controls = merge_controls(baselines);
-    let page = build_html::HtmlPage::new()
+    let mut page = build_html::HtmlPage::new()
         .with_title("fedramp controls comparison")
-        .with_head_link("style.css", "stylesheet")
-        .with_table(tabulate_controls(controls))
-        .to_html_string();
-    println!("{}", page);
+        .with_head_link("style.css", "stylesheet");
+    let mut tabs = Container::default().with_attributes([("class", "tabs")]);
+    add_tab(&mut tabs, "all", "All controls", true, Container::default().with_table(tabulate_controls(&controls)));
+    add_tab(&mut tabs, "high-moderate", "High-Moderate", false, Container::default().with_table(tabulate_controls(&controls.without_baseline(Baselines::Low))));
+    add_tab(&mut tabs, "moderate-low", "Moderate-Low", false, Container::default().with_table(tabulate_controls(&controls.without_baseline(Baselines::High))));
+    page = page.with_container(tabs);
+    println!("{}", page.to_html_string());
     return Ok(());
 }
