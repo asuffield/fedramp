@@ -116,12 +116,14 @@ impl Default for Control {
 #[derive(Debug, Default)]
 struct Controls {
     controls: HashMap<ControlID, Control>,
+    baselines: EnumMap<Baselines, bool>,
 }
 
 impl Controls {
     fn parse(sheet: calamine::Range<calamine::Data>, baseline: Baselines) -> Controls {
         let ws = regex!(r"\s+");
         let mut c = Controls::default();
+        c.baselines[baseline] = true;
         let mut header_names = HashMap::new();
         let headers = sheet.range((1, 0), (1, sheet.width().try_into().unwrap()));
         for (_, x, name) in headers.cells() {
@@ -171,7 +173,8 @@ impl Controls {
     fn without_baseline(&self, level: Baselines) -> Controls {
         let mut controls = HashMap::new();
         controls.extend(self.controls.iter().map(|(k, v)| (k.clone(), v.without_baseline(level))));
-        return Controls{controls};
+        let baselines = EnumMap::from_fn(|l| l != level && self.baselines[l]);
+        return Controls{controls, baselines};
     }
 }
 
@@ -192,10 +195,12 @@ async fn get_baselines() -> Result<HashMap<Baselines, Controls>, Box<dyn std::er
 
 fn merge_controls(baselines: HashMap<Baselines, Controls>) -> Controls {
     let mut all_controls = HashSet::new();
-    for (_, baseline) in baselines.iter() {
+    let mut merged_baselines = EnumMap::default();
+    for (level, baseline) in baselines.iter() {
         for id in baseline.controls.keys() {
             all_controls.insert(id.clone());
         }
+        merged_baselines[*level] = true;
     }
 
     let mut merged_controls = HashMap::new();
@@ -218,10 +223,11 @@ fn merge_controls(baselines: HashMap<Baselines, Controls>) -> Controls {
 
     return Controls {
         controls: merged_controls,
+        baselines: merged_baselines,
     };
 }
 
-fn tabulate_controls(controls: &Controls) -> build_html::Table {
+fn tabulate_controls(controls: &Controls, diffs_only: bool) -> build_html::Table {
     let mut ids: Vec<&ControlID> = controls.controls.keys().collect();
     ids.sort();
     let mut table = Table::new().with_custom_header_row(
@@ -250,6 +256,17 @@ fn tabulate_controls(controls: &Controls) -> build_html::Table {
         };
 
         let has_parameter_rows = control.distinct_parameters();
+
+        if diffs_only {
+            let missing_baselines = controls.baselines.iter().filter(|(level, b)| {
+                if !*b { return false };
+                control.parameters[*level].is_none()
+            }).count();
+            if !has_parameter_rows && missing_baselines == 0 {
+                continue;
+            }
+        }
+
         let rowspan = if has_parameter_rows {
             1 + control.parameters.len()
         } else {
@@ -328,9 +345,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_title("fedramp controls comparison")
         .with_head_link("style.css", "stylesheet");
     let mut tabs = Container::default().with_attributes([("class", "tabs")]);
-    add_tab(&mut tabs, "all", "All controls", true, Container::default().with_table(tabulate_controls(&controls)));
-    add_tab(&mut tabs, "high-moderate", "High-Moderate", false, Container::default().with_table(tabulate_controls(&controls.without_baseline(Baselines::Low))));
-    add_tab(&mut tabs, "moderate-low", "Moderate-Low", false, Container::default().with_table(tabulate_controls(&controls.without_baseline(Baselines::High))));
+    add_tab(&mut tabs, "all", "All controls", true, Container::default().with_table(tabulate_controls(&controls, false)));
+    add_tab(&mut tabs, "high-moderate", "High-Moderate", false, Container::default().with_table(tabulate_controls(&controls.without_baseline(Baselines::Low), false)));
+    add_tab(&mut tabs, "high-moderate-diffs", "High-Moderate (diffs only)", false, Container::default().with_table(tabulate_controls(&controls.without_baseline(Baselines::Low), true)));
+    add_tab(&mut tabs, "moderate-low", "Moderate-Low", false, Container::default().with_table(tabulate_controls(&controls.without_baseline(Baselines::High), false)));
+    add_tab(&mut tabs, "moderate-low-diffs", "Moderate-Low (diffs only)", false, Container::default().with_table(tabulate_controls(&controls.without_baseline(Baselines::High), true)));
     page = page.with_container(tabs);
     println!("{}", page.to_html_string());
     return Ok(());
